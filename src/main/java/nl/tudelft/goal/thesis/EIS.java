@@ -79,6 +79,7 @@ public class EIS extends AbstractEnvironment {
 		JPanel inputpanel = new JPanel();
 		inputpanel.setLayout(new FlowLayout());
 		final JTextField input = new JTextField(35);
+		input.requestFocus();
 		JButton button = new JButton("Enter");
 		final JTextField textField = new JTextField(35);
 		textField.setName("TextField");

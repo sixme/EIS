@@ -25,7 +25,9 @@ public class Entity {
 
     private final String   newLine           = System.getProperty("line.separator");
     private final String[] knowBasic         = { "gender", "age" };
-    private List           knowBasic_l;
+    private final String[] knowMore          = { "partner", "futureJob" };
+    private List<String>   knowBasic_l;
+    private List<String>   knowMore_l;
 
     private String         lastInput         = "";
     private String         currentID         = null;
@@ -38,12 +40,14 @@ public class Entity {
     private JFrame         frame;
     private JTextField     input;
 
+    private boolean        clarification     = false;
     // Booleans to control when to send the different percepts
     private boolean        sendHas           = false;
     private boolean        sendFailed        = false;
     private boolean        sendUserWantsToGo = false;
     private boolean        sendCollaborative = false;
     private boolean        sendIs            = false;
+    private boolean        sendDislike       = false;
 
     // Constructor
     public Entity(JFrame f) {
@@ -55,6 +59,7 @@ public class Entity {
                 .getComponents()[0])).getComponents()[0]).getComponents()[0];
         this.textArea = (JTextArea) b.getComponents()[0];
         knowBasic_l = Arrays.asList(knowBasic);
+        knowMore_l = Arrays.asList(knowMore);
         System.out.println("Entity created");
 
     }
@@ -98,16 +103,32 @@ public class Entity {
             textArea.append(text + newLine);
             return;
         }
-        // Stop sending percepts
-        // Stop sending failed percept
-        if (type.equals("clarification"))
+        // Stop sending failed after a clarification
+        if (clarification && !type.equals("clarification")) {
+            clarification = false;
             sendFailed = false;
-        // Stop sending has percept
+        }
+
+        /** Stop sending the percepts **/
+
+        // Stop sending failed percept (normal)
+        if (type.equals("clarification")) {
+            sendFailed = false;
+            clarification = true;
+        }
+
+        // Stop sending HAS percept
         if (sendHas) {
             sendHas = false;
             value = "";
         }
-        // Stop sending clarification
+
+        // Stop sending DISLIKES percept
+        if (sendDislike) {
+            sendDislike = false;
+            value = "";
+        }
+        // Stop sending collaborative
         if (sendCollaborative)
             sendCollaborative = false;
         // Stop sending IS
@@ -129,7 +150,7 @@ public class Entity {
     /**
      * IS percept
      * 
-     * @return an arraylist containing the percept and the value (for instance IS(gender, a boy)).
+     * @return an arraylist containing the entity, the percept and the value (for instance IS(user, gender, a boy)).
      */
     @AsPercept(name = "iis", multipleArguments = true)
     public ArrayList<String> is() {
@@ -138,7 +159,6 @@ public class Entity {
             per.add(entity);
             per.add(currentID);
             per.add(value);
-            System.out.println(per);
             return per;
         } else
             return null;
@@ -170,6 +190,19 @@ public class Entity {
     public String sendCollaborative() {
         if (sendCollaborative) {
             return collaborative;
+        } else
+            return null;
+    }
+
+    /**
+     * Dislike percept
+     * 
+     * @return a string indicating what the user dislikes
+     */
+    @AsPercept(name = "dislikes")
+    public String dislikes() {
+        if (sendDislike) {
+            return value;
         } else
             return null;
     }
@@ -216,13 +249,18 @@ public class Entity {
             }
             // NAME
             if (currentID.equals("userName")) {
-                System.out.println("WTF");
                 if (text.toLowerCase().startsWith("my name is ")) {
                     userName = text.toLowerCase().split("my name is ")[1].trim();
                     sendHas = true;
-                    value = userName;
+                    value = userName.substring(0, 1).toUpperCase() + userName.substring(1);
+                    userName = value;
                     has();
                     collaborative();
+                } else if (countWords(text.toLowerCase()) == 1) {
+                    userName = text.substring(0, 1).toUpperCase() + text.substring(1);
+                    value = userName;
+                    sendHas = true;
+                    has();
                 } else if (text.trim().toLowerCase().equals("i don't want to tell you my name") || text.trim().toLowerCase()
                         .equals("no, i don't want")) {
                     notCollaborative();
@@ -237,7 +275,61 @@ public class Entity {
                     sendIs = true;
                     is();
                     collaborative();
+                } else if (text.matches("^[0-9]*$") && currentID.equals("age")) { // number with the age
+                    value = text;
+                    sendIs = true;
+                    is();
+                    collaborative();
                 } else if (text.trim().equals("No") || text.trim().equals("I don't want")) {
+                    notCollaborative();
+                } else if (clarification) {
+                    if (text.trim().toLowerCase().startsWith("yes")) {
+                        value = "a boy";
+                        sendIs = true;
+                        is();
+                        collaborative();
+                    } else if (text.trim().toLowerCase().startsWith("no") || text.trim().toLowerCase().contains("girl")) {
+                        value = "a girl";
+                        sendIs = true;
+                        is();
+                        collaborative();
+                    } else {
+                        sendFailed = true;
+                        failed();
+                    }
+                } else {
+                    sendFailed = true;
+                    failed();
+                }
+                // KNOW MORE
+            } else if (knowMore_l.contains(currentID)) {
+                if (currentID.equals("partner")) { // PARTNER
+                    if (countWords(text.trim()) == 1 || countWords(text.trim()) == 2 && !text.contains("yes")) { // Name or name and surname
+                        value = text;
+                        sendHas = true;
+                        has();
+                        collaborative();
+                    } else if (text.toLowerCase().contains("don't have")) {
+                        value = "no";
+                        sendHas = true;
+                        has();
+                        collaborative();
+                    } else if (text.toLowerCase().contains("don't want") || text.toLowerCase().contains("don't like")) {
+                        notCollaborative();
+                    } else if (text.toLowerCase().contains("would like") || text.toLowerCase().contains("want a")) {
+                        value = "being single";
+                        sendDislike = true;
+                        dislikes();
+                    } else {
+                        sendFailed = true;
+                        failed();
+                    }
+                }
+            } else if (currentID.equals("joke")) {
+                if (text.trim().toLowerCase().contains("yes") || text.trim().toLowerCase().contains("haha")) {
+                    collaborative();
+                } else if (text.trim().toLowerCase().contains("no") || text.trim().toLowerCase().contains("boring") || text.trim().toLowerCase()
+                        .contains("don't like")) {
                     notCollaborative();
                 } else {
                     sendFailed = true;
@@ -258,6 +350,14 @@ public class Entity {
             return "go";
         } else
             return null;
+    }
+
+    // credit: http://stackoverflow.com/a/5864174
+    public int countWords(String string) {
+        String trim = string.trim();
+        if (trim.isEmpty())
+            return 0;
+        return trim.split("\\s+").length; // separate string around spaces
     }
 
     public void appendUser(String text) {
