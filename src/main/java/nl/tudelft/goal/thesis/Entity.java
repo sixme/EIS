@@ -34,6 +34,7 @@ public class Entity {
     private String         userName          = "";
     private String         collaborative     = "";
     private String         value             = "";
+    private String         what              = "";
     private final String   entity            = "user";
 
     private JTextArea      textArea;
@@ -48,6 +49,10 @@ public class Entity {
     private boolean        sendCollaborative = false;
     private boolean        sendIs            = false;
     private boolean        sendDislike       = false;
+    private boolean        sendLike          = false;
+    private boolean        sendWant          = false;
+    private boolean        sendReason        = false;
+    private boolean        partnerDone       = false;
 
     // Constructor
     public Entity(JFrame f) {
@@ -123,9 +128,29 @@ public class Entity {
             value = "";
         }
 
+        // Stop sending REASON percept
+        if (sendReason) {
+            sendReason = false;
+            what = "";
+            value = "";
+        }
+
+        // Stop sending WANT percept
+        if (sendWant) {
+            sendWant = false;
+            what = "";
+            value = "";
+        }
+
         // Stop sending DISLIKES percept
         if (sendDislike) {
             sendDislike = false;
+            value = "";
+        }
+
+        // Stop sending DISLIKES percept
+        if (sendLike) {
+            sendLike = false;
             value = "";
         }
         // Stop sending collaborative
@@ -172,7 +197,7 @@ public class Entity {
     @AsPercept(name = "has", multipleArguments = true)
     public ArrayList<String> has() {
         ArrayList<String> per = new ArrayList<String>();
-        if (sendHas) {
+        if (sendHas && !currentID.equals("") && !currentID.equals("''") && !currentID.equals("'")) {
             per.add(entity);
             per.add(currentID);
             per.add(value);
@@ -203,6 +228,53 @@ public class Entity {
     public String dislikes() {
         if (sendDislike) {
             return value;
+        } else
+            return null;
+    }
+
+    /**
+     * Like percept
+     * 
+     * @return a string indicating what the user likes
+     */
+    @AsPercept(name = "likes")
+    public String likes() {
+        if (sendLike) {
+            return value;
+        } else
+            return null;
+    }
+
+    /**
+     * Reason percept
+     * 
+     * @return a string indicating the reason of something
+     */
+    @AsPercept(name = "reason", multipleArguments = true)
+    public ArrayList<String> reason() {
+        ArrayList<String> per = new ArrayList<String>();
+        if (sendReason) {
+            per.add(entity);
+            per.add(what);
+            per.add(value);
+            return per;
+        } else
+            return null;
+    }
+
+    /**
+     * Reason percept
+     * 
+     * @return a string indicating the reason of something
+     */
+    @AsPercept(name = "wants", multipleArguments = true)
+    public ArrayList<String> want() {
+        ArrayList<String> per = new ArrayList<String>();
+        if (sendWant) {
+            per.add(entity);
+            per.add(what);
+            per.add(value);
+            return per;
         } else
             return null;
     }
@@ -257,7 +329,7 @@ public class Entity {
                     has();
                     collaborative();
                 } else if (countWords(text.toLowerCase()) == 1) {
-                    userName = text.substring(0, 1).toUpperCase() + text.substring(1);
+                    userName = text.substring(0, 1).trim().toUpperCase() + text.trim().substring(1);
                     value = userName;
                     sendHas = true;
                     has();
@@ -303,28 +375,56 @@ public class Entity {
                 }
                 // KNOW MORE
             } else if (knowMore_l.contains(currentID)) {
+                // DISLIKE TOPIC
+                if (text.toLowerCase().contains("don't want to") || text.toLowerCase().contains("don't like to")) {
+                    notCollaborative();
+                }
                 if (currentID.equals("partner")) { // PARTNER
-                    if (countWords(text.trim()) == 1 || countWords(text.trim()) == 2 && !text.contains("yes")) { // Name or name and surname
-                        value = text;
+                    if ((countWords(text.trim()) == 1 || countWords(text.trim()) == 2) && !text.toLowerCase().contains("yes") && !partnerDone) {
+                        value = text.substring(0, 1).trim().toUpperCase() + text.trim().substring(1);
+                        what = "partner";
                         sendHas = true;
+                        partnerDone = true;
                         has();
                         collaborative();
-                    } else if (text.toLowerCase().contains("don't have")) {
-                        value = "no";
-                        sendHas = true;
-                        has();
-                        collaborative();
-                    } else if (text.toLowerCase().contains("don't want") || text.toLowerCase().contains("don't like")) {
-                        notCollaborative();
-                    } else if (text.toLowerCase().contains("would like") || text.toLowerCase().contains("want a")) {
-                        value = "being single";
+                    } else if (text.trim().toLowerCase().contains("yes")) {
+                        value = what;
+                        sendLike = true;
+                        likes();
+                    } else if (text.trim().toLowerCase().equals("no")) {
+                        value = "partner";
                         sendDislike = true;
                         dislikes();
+                    } else if (text.toLowerCase().contains("don't have")) {
+                        value = "no";
+                        what = "being single";
+                        sendHas = true;
+                        has();
+                        collaborative();
+                    } else if (text.toLowerCase().contains("would like") || text.toLowerCase().contains("want a")) {
+                        value = "being single";
+                        what = value;
+                        sendDislike = true;
+                        dislikes();
+                    } else if (text.toLowerCase().contains("because")) {
+                        value = text.toLowerCase().substring(text.toLowerCase().indexOf("because"));
+                        sendReason = true;
+                        reason();
                     } else {
                         sendFailed = true;
                         failed();
                     }
-                }
+                } else if (currentID.equals("futureJob")) {
+                    if (text.toLowerCase().trim().contains("i want to be ")) {
+                        value = text.substring(text.indexOf("i want to be ") + 14);
+                        what = "futureJob";
+                        sendWant = true;
+                        want();
+                    } else {
+                        sendFailed = true;
+                        failed();
+                    }
+                } // JOKE
             } else if (currentID.equals("joke")) {
                 if (text.trim().toLowerCase().contains("yes") || text.trim().toLowerCase().contains("haha")) {
                     collaborative();
