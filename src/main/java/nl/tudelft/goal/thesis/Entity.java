@@ -160,6 +160,9 @@ public class Entity {
         if (sendIs)
             sendIs = false;
 
+        if (ID.equals("followUp")) {
+            what = text.substring(text.indexOf("like ") + 5, text.length() - 1);
+        }
         // Changing the ID
         if (ID != null && !ID.equals(currentID)) {
             // small delay so it looks more natural on the shell
@@ -319,6 +322,7 @@ public class Entity {
                 sendUserWantsToGo();
                 return;
             }
+
             // NAME
             if (currentID.equals("userName")) {
                 if (text.toLowerCase().startsWith("my name is ")) {
@@ -333,6 +337,7 @@ public class Entity {
                     value = userName;
                     sendHas = true;
                     has();
+                    collaborative();
                 } else if (text.trim().toLowerCase().equals("i don't want to tell you my name") || text.trim().toLowerCase()
                         .equals("no, i don't want")) {
                     notCollaborative();
@@ -344,6 +349,10 @@ public class Entity {
             } else if (knowBasic_l.contains(currentID)) {
                 if (text.startsWith("I am ")) {
                     value = text.split("I am ")[1].trim();
+                    if (value.equals("")) {
+                        sendFailed = true;
+                        failed();
+                    }
                     sendIs = true;
                     is();
                     collaborative();
@@ -385,6 +394,11 @@ public class Entity {
                         collaborative();
                     } else if (text.toLowerCase().contains("don't want to") || text.toLowerCase().contains("don't like to")) {
                         notCollaborative();
+                    } else if (text.toLowerCase().contains("would like") || text.toLowerCase().contains("want a")) {
+                        value = "being single";
+                        what = value;
+                        sendDislike = true;
+                        dislikes();
                     } else if (text.trim().toLowerCase().contains("yes")) {
                         value = what;
                         sendLike = true;
@@ -400,11 +414,6 @@ public class Entity {
                         partnerDone = true;
                         has();
                         collaborative();
-                    } else if (text.toLowerCase().contains("would like") || text.toLowerCase().contains("want a")) {
-                        value = "being single";
-                        what = value;
-                        sendDislike = true;
-                        dislikes();
                     } else if (text.toLowerCase().contains("because")) {
                         value = text.toLowerCase().substring(text.toLowerCase().indexOf("because"));
                         sendReason = true;
@@ -445,6 +454,15 @@ public class Entity {
                 } else if (text.trim().toLowerCase().contains("no") || text.trim().toLowerCase().contains("boring") || text.trim().toLowerCase()
                         .contains("don't like")) {
                     notCollaborative();
+                } else {
+                    sendFailed = true;
+                    failed();
+                }
+            } else if (currentID.equals("followUp")) {
+                if (text.toLowerCase().contains("because")) {
+                    value = text.toLowerCase().substring(text.toLowerCase().indexOf("because"));
+                    sendReason = true;
+                    reason();
                 } else {
                     sendFailed = true;
                     failed();
