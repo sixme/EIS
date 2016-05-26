@@ -332,7 +332,7 @@ public class Entity {
                     userName = value;
                     has();
                     collaborative();
-                } else if (countWords(text.toLowerCase()) == 1) {
+                } else if (countWords(text.toLowerCase()) == 1 || countWords(text.toLowerCase()) == 2) {
                     userName = text.substring(0, 1).trim().toUpperCase() + text.trim().substring(1);
                     value = userName;
                     sendHas = true;
@@ -352,10 +352,14 @@ public class Entity {
                     if (value.equals("")) {
                         sendFailed = true;
                         failed();
+                    } else if (currentID.equals("age") && !value.substring(0, 1).matches("^[0-9]*$")) {
+                        sendFailed = true;
+                        failed();
+                    } else {
+                        sendIs = true;
+                        is();
+                        collaborative();
                     }
-                    sendIs = true;
-                    is();
-                    collaborative();
                 } else if (text.matches("^[0-9]*$") && currentID.equals("age")) { // number with the age
                     value = text;
                     sendIs = true;
@@ -385,7 +389,8 @@ public class Entity {
                 // KNOW MORE
             } else if (knowMore_l.contains(currentID)) {
                 if (currentID.equals("partner")) { // PARTNER
-                    if ((countWords(text.trim()) == 1 || countWords(text.trim()) == 2) && !text.toLowerCase().contains("yes") && !partnerDone) {
+                    if ((countWords(text.trim()) == 1 || countWords(text.trim()) == 2) && !text.toLowerCase().contains("yes") && !text.toLowerCase()
+                            .trim().equals("nothing") && !partnerDone) {
                         value = text.substring(0, 1).trim().toUpperCase() + text.trim().substring(1);
                         what = "partner";
                         sendHas = true;
@@ -404,6 +409,9 @@ public class Entity {
                         sendLike = true;
                         likes();
                     } else if (text.trim().toLowerCase().equals("no")) {
+                        if (what.equals("being single")) {
+                            value = "playing with friends";
+                        }
                         value = "partner";
                         sendDislike = true;
                         dislikes();
@@ -424,7 +432,12 @@ public class Entity {
                     }
                 } else if (currentID.equals("futureJob")) {
                     if (text.toLowerCase().trim().contains("i want to be ")) {
-                        value = text.substring(text.indexOf("i want to be ") + 14);
+                        value = text.substring(text.indexOf("i want to be ") + 13);
+                        what = "futureJob";
+                        sendWant = true;
+                        want();
+                    } else if (text.toLowerCase().trim().contains("i don't know")) {
+                        value = "dont know";
                         what = "futureJob";
                         sendWant = true;
                         want();
@@ -434,7 +447,7 @@ public class Entity {
                         value = "futureJob";
                         sendLike = true;
                         likes();
-                    } else if (text.toLowerCase().contains("no")) {
+                    } else if (!text.toLowerCase().contains("know") && text.toLowerCase().contains("no")) {
                         value = "futureJob";
                         sendDislike = true;
                         dislikes();
