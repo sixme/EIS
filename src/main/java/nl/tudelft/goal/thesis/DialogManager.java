@@ -1,5 +1,8 @@
 package nl.tudelft.goal.thesis;
 
+import static pal.Constants.NAO_IP_PROP;
+import static pal.Constants.TECSSERVER_IP_PROP;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -15,48 +18,53 @@ import javax.swing.JViewport;
 import eis.eis2java.annotation.AsAction;
 import eis.eis2java.annotation.AsPercept;
 
+import pal.NAOConnector;
+
 /**
- * Entity received by 'MyAgent' which parses user's input and sends percepts back to the agent. The agent can interact with the user via the 'say' and
+ * DialogManager received by 'MyAgent' which parses user's input and sends percepts back to the agent. The agent can interact with the user via the 'say' and
  * 'end' actions.
  * 
  * @author Santiago Conde
  */
-public class Entity {
+public class DialogManager {
 
-    private final String   newLine           = System.getProperty("line.separator");
-    private final String[] knowBasic         = { "gender", "age" };
-    private final String[] knowMore          = { "partner", "futureJob" };
+    private final String   newLine             = System.getProperty("line.separator");
+    private final String[] necessaryProperties = { TECSSERVER_IP_PROP, NAO_IP_PROP };
+    private final String[] knowBasic           = { "gender", "age" };
+    private final String[] knowMore            = { "partner", "futureJob" };
     private List<String>   knowBasic_l;
     private List<String>   knowMore_l;
 
-    private String         lastInput         = "";
-    private String         currentID         = null;
-    private String         userName          = "";
-    private String         collaborative     = "";
-    private String         value             = "";
-    private String         what              = "";
-    private final String   entity            = "user";
+    private String         lastInput           = "";
+    private String         currentID           = null;
+    private String         userName            = "";
+    private String         collaborative       = "";
+    private String         value               = "";
+    private String         what                = "";
+    private final String   entity              = "user";
 
     private JTextArea      textArea;
     private JFrame         frame;
     private JTextField     input;
 
-    private boolean        clarification     = false;
     // Booleans to control when to send the different percepts
-    private boolean        sendHas           = false;
-    private boolean        sendFailed        = false;
-    private boolean        sendUserWantsToGo = false;
-    private boolean        sendCollaborative = false;
-    private boolean        sendIs            = false;
-    private boolean        sendDislike       = false;
-    private boolean        sendLike          = false;
-    private boolean        sendWant          = false;
-    private boolean        sendReason        = false;
-    private boolean        partnerDone       = false;
+    private boolean        clarification       = false;
+    private boolean        sendHas             = false;
+    private boolean        sendFailed          = false;
+    private boolean        sendUserWantsToGo   = false;
+    private boolean        sendCollaborative   = false;
+    private boolean        sendIs              = false;
+    private boolean        sendDislike         = false;
+    private boolean        sendLike            = false;
+    private boolean        sendWant            = false;
+    private boolean        sendReason          = false;
+    private boolean        partnerDone         = false;
+    private boolean        naoOutput;
 
     // Constructor
-    public Entity(JFrame f) {
+    public DialogManager(JFrame f, boolean naoOutput) {
         this.frame = f;
+        this.naoOutput = naoOutput;
         JPanel a = (JPanel) ((JPanel) (((JPanel) ((JLayeredPane) frame.getRootPane().getComponents()[1]).getComponents()[0]).getComponents()[0]))
                 .getComponents()[1];
         this.input = (JTextField) a.getComponents()[2];
@@ -65,7 +73,18 @@ public class Entity {
         this.textArea = (JTextArea) b.getComponents()[0];
         knowBasic_l = Arrays.asList(knowBasic);
         knowMore_l = Arrays.asList(knowMore);
-        System.out.println("Entity created");
+        if (naoOutput) {
+            try {
+                pal.Utils.loadEnvironment(necessaryProperties);
+                pal.NAOConnector.initConnector();
+                NAOConnector.connect();
+            } catch (Exception e) {
+                System.err.println("Error connection to the NAOConnector: " + e.getMessage());
+                e.printStackTrace();
+            }
+        }
+
+        System.out.println("DialogManager created");
 
     }
 
@@ -78,7 +97,11 @@ public class Entity {
     @AsAction(name = "end")
     public void kill(String text) {
         textArea.append(text + newLine);
+        if (naoOutput)
+            NAOConnector.sayText(text, true);
         try {
+            if (naoOutput)
+                NAOConnector.disConnect();
             // Wait for the message to be displayed
             Thread.sleep(5000);
             System.exit(0);
@@ -106,6 +129,8 @@ public class Entity {
         if (currentID == null && ID != null) {
             currentID = ID;
             textArea.append(text + newLine);
+            if (naoOutput)
+                NAOConnector.sayText(text, true);
             return;
         }
         // Stop sending failed after a clarification
@@ -169,9 +194,14 @@ public class Entity {
             Thread.sleep(300);
             currentID = ID;
             textArea.append(text + newLine);
+            if (naoOutput) {
+                NAOConnector.sayText(text, true);
+            }
             // Same ID
         } else {
             textArea.append(text + newLine);
+            if (naoOutput)
+                NAOConnector.sayText(text, true);
         }
     }
 
@@ -295,7 +325,8 @@ public class Entity {
             return null;
     }
 
-    // Main loop for processing inputs, for every input it calls the method processInput.
+    // Main loop for processing inputs, for every input it calls the method
+    // processInput.
     @AsPercept(name = "a")
     public String getUserInput() {
         String text = input.getText();
@@ -327,9 +358,9 @@ public class Entity {
             if (currentID.equals("userName")) {
                 if (text.toLowerCase().startsWith("my name is ")) {
                     userName = text.toLowerCase().split("my name is ")[1].trim();
-                    sendHas = true;
                     value = userName.substring(0, 1).toUpperCase() + userName.substring(1);
                     userName = value;
+                    sendHas = true;
                     has();
                     collaborative();
                 } else if (countWords(text.toLowerCase()) == 1 || countWords(text.toLowerCase()) == 2) {
@@ -360,7 +391,10 @@ public class Entity {
                         is();
                         collaborative();
                     }
-                } else if (text.matches("^[0-9]*$") && currentID.equals("age")) { // number with the age
+                } else if (text.matches("^[0-9]*$") && currentID.equals("age")) { // number
+                                                                                  // with
+                                                                                  // the
+                                                                                  // age
                     value = text;
                     sendIs = true;
                     is();
